@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Мой День</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1C1B1F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#121212;
+    --surface:#1C1B1F;
+    --surface2:#252329;
+    --border:#332F38;
+    --text:#EDE9F0;
+    --text-dim:#A39CB0;
+    --text-faint:#6E677A;
+    --accent:#C9A876;
+    --accent-dim:#8A7654;
+    --green:#7FB88A;
+    --red:#D08A7E;
+    --blue:#7E9CD0;
+    --radius:14px;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--text); font-family:var(--font); overscroll-behavior:none;}
+  body{padding-bottom:90px; min-height:100vh;}
+
+  .header{
+    position:sticky; top:0; z-index:10;
+    background:var(--bg);
+    padding:20px 20px 12px 20px;
+    border-bottom:1px solid var(--border);
+  }
+  .header-top{display:flex; justify-content:space-between; align-items:flex-start;}
+  .date-label{font-size:13px; color:var(--text-faint); letter-spacing:0.05em; text-transform:uppercase;}
+  .day-name{font-size:26px; font-weight:600; margin-top:2px; letter-spacing:-0.01em;}
+  .progress-ring{width:46px; height:46px; position:relative;}
+  .progress-ring svg{transform:rotate(-90deg);}
+  .progress-ring-text{
+    position:absolute; top:0; left:0; width:100%; height:100%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:600; color:var(--accent);
+  }
+
+  .tabs{display:flex; gap:6px; margin-top:16px;}
+  .tab{
+    flex:1; text-align:center; padding:9px 0; border-radius:10px;
+    font-size:13px; font-weight:500; color:var(--text-dim);
+    background:transparent; border:1px solid transparent;
+    transition:all .15s;
+  }
+  .tab.active{background:var(--surface2); color:var(--accent); border-color:var(--border);}
+
+  .content{padding:18px 20px 0 20px;}
+  .section-title{
+    font-size:12px; color:var(--text-faint); text-transform:uppercase; letter-spacing:0.08em;
+    margin:22px 0 10px 0; font-weight:600;
+  }
+  .section-title:first-child{margin-top:0;}
+
+  /* Schedule view */
+  .block{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:14px 16px; margin-bottom:10px; display:flex; align-items:center; gap:12px;
+    position:relative; overflow:hidden;
+  }
+  .block.current{border-color:var(--accent-dim); background:linear-gradient(135deg, rgba(201,168,118,0.08), var(--surface));}
+  .block-time{
+    font-size:13px; color:var(--text-dim); font-weight:600; min-width:46px; flex-shrink:0;
+  }
+  .block.current .block-time{color:var(--accent);}
+  .block-icon{
+    width:36px; height:36px; border-radius:10px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:17px;
+  }
+  .block-body{flex:1; min-width:0;}
+  .block-title{font-size:15px; font-weight:500; color:var(--text);}
+  .block-sub{font-size:12.5px; color:var(--text-faint); margin-top:1px;}
+  .block-tag{
+    font-size:10px; padding:2px 7px; border-radius:6px; background:var(--surface2);
+    color:var(--text-faint); flex-shrink:0; white-space:nowrap;
+  }
+
+  /* Tasks view */
+  .task-row{
+    display:flex; align-items:center; gap:12px;
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:13px 14px; margin-bottom:8px;
+  }
+  .check{
+    width:22px; height:22px; border-radius:7px; border:2px solid var(--text-faint);
+    flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    transition:all .15s; cursor:pointer;
+  }
+  .check.checked{background:var(--green); border-color:var(--green);}
+  .check.checked::after{content:"✓"; color:#121212; font-size:13px; font-weight:700;}
+  .task-text{flex:1; font-size:14.5px;}
+  .task-text.done{color:var(--text-faint); text-decoration:line-through;}
+  .task-priority{width:7px; height:7px; border-radius:50%; flex-shrink:0;}
+  .pri-high{background:var(--red);}
+  .pri-med{background:var(--accent);}
+  .pri-low{background:var(--text-faint);}
+
+  .add-task-row{
+    display:flex; gap:8px; margin-top:4px; margin-bottom:8px;
+  }
+  .add-input{
+    flex:1; background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    padding:12px 14px; color:var(--text); font-size:14.5px; font-family:var(--font);
+  }
+  .add-input::placeholder{color:var(--text-faint);}
+  .add-btn{
+    width:46px; background:var(--accent); border:none; border-radius:12px;
+    color:#1C1B1F; font-size:20px; font-weight:600; cursor:pointer;
+  }
+
+  /* Habits view */
+  .habit-card{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:14px 16px; margin-bottom:10px;
+  }
+  .habit-top{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
+  .habit-name{font-size:14.5px; font-weight:500;}
+  .habit-streak{font-size:12px; color:var(--accent); font-weight:600; display:flex; align-items:center; gap:4px;}
+  .week-dots{display:flex; gap:6px;}
+  .day-dot{
+    flex:1; height:30px; border-radius:8px; background:var(--surface2);
+    display:flex; align-items:center; justify-content:center; font-size:10px;
+    color:var(--text-faint); border:1px solid var(--border); cursor:pointer;
+    position:relative;
+  }
+  .day-dot.filled{background:var(--green); border-color:var(--green); color:#121212; font-weight:700;}
+  .day-dot.today{box-shadow:0 0 0 2px var(--accent);}
+
+  .empty-state{
+    text-align:center; padding:50px 20px; color:var(--text-faint);
+  }
+  .empty-state-icon{font-size:32px; margin-bottom:10px; opacity:.5;}
+  .empty-state-text{font-size:13.5px;}
+
+  .bottom-nav{
+    position:fixed; bottom:0; left:0; right:0; z-index:20;
+    background:rgba(28,27,31,0.92); backdrop-filter:blur(20px);
+    border-top:1px solid var(--border);
+    display:flex; padding:8px 12px calc(8px + env(safe-area-inset-bottom, 0)) 12px;
+  }
+  .nav-item{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
+    padding:6px 0; color:var(--text-faint); font-size:10.5px; font-weight:500;
+    transition:color .15s;
+  }
+  .nav-item.active{color:var(--accent);}
+  .nav-icon{font-size:20px;}
+
+  .view{display:none;}
+  .view.active{display:block;}
+
+  .stats-row{display:flex; gap:10px; margin-bottom:4px;}
+  .stat-card{
+    flex:1; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:14px; text-align:center;
+  }
+  .stat-num{font-size:22px; font-weight:700; color:var(--accent);}
+  .stat-label{font-size:11px; color:var(--text-faint); margin-top:2px;}
+
+  .swipe-hint{
+    text-align:center; font-size:11px; color:var(--text-faint); margin:10px 0 4px 0;
+  }
+
+  ::-webkit-scrollbar{display:none;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <div>
+      <div class="date-label" id="dateLabel">ВТОРНИК</div>
+      <div class="day-name" id="dayName">Мой день</div>
+    </div>
+    <div class="progress-ring">
+      <svg width="46" height="46">
+        <circle cx="23" cy="23" r="19" fill="none" stroke="#332F38" stroke-width="4"/>
+        <circle id="ringProgress" cx="23" cy="23" r="19" fill="none" stroke="#C9A876" stroke-width="4"
+          stroke-dasharray="119.4" stroke-dashoffset="119.4" stroke-linecap="round"/>
+      </svg>
+      <div class="progress-ring-text" id="ringText">0%</div>
+    </div>
+  </div>
+  <div class="tabs">
+    <div class="tab active" data-view="schedule">Расписание</div>
+    <div class="tab" data-view="tasks">Задачи</div>
+    <div class="tab" data-view="habits">Привычки</div>
+  </div>
+</div>
+
+<div class="content">
+
+  <!-- SCHEDULE VIEW -->
+  <div class="view active" id="view-schedule">
+    <div class="section-title">Сегодня</div>
+    <div id="scheduleList"></div>
+  </div>
+
+  <!-- TASKS VIEW -->
+  <div class="view" id="view-tasks">
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-num" id="statDone">0</div>
+        <div class="stat-label">Выполнено</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statLeft">0</div>
+        <div class="stat-label">Осталось</div>
+      </div>
+    </div>
+    <div class="section-title">Добавить задачу</div>
+    <div class="add-task-row">
+      <input type="text" class="add-input" id="taskInput" placeholder="Например: позвонить врачу">
+      <button class="add-btn" id="addTaskBtn">+</button>
+    </div>
+    <div class="section-title">На сегодня</div>
+    <div id="tasksList"></div>
+    <div class="empty-state" id="tasksEmpty" style="display:none;">
+      <div class="empty-state-icon">✓</div>
+      <div class="empty-state-text">Задач пока нет — добавь первую выше</div>
+    </div>
+    <div class="swipe-hint">Удержи задачу чтобы удалить</div>
+  </div>
+
+  <!-- HABITS VIEW -->
+  <div class="view" id="view-habits">
+    <div class="section-title">Добавить привычку</div>
+    <div class="add-task-row">
+      <input type="text" class="add-input" id="habitInput" placeholder="Например: пить воду утром">
+      <button class="add-btn" id="addHabitBtn">+</button>
+    </div>
+    <div class="section-title">Привычки этой недели</div>
+    <div id="habitsList"></div>
+    <div class="swipe-hint">Нажми на день чтобы отметить выполнение</div>
+    <div class="empty-state" id="habitsEmpty" style="display:none;">
+      <div class="empty-state-icon">🔥</div>
+      <div class="empty-state-text">Привычек пока нет — добавь первую выше</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="bottom-nav">
+  <div class="nav-item active" data-view="schedule">
+    <div class="nav-icon">🗓</div>
+    <div>Расписание</div>
+  </div>
+  <div class="nav-item" data-view="tasks">
+    <div class="nav-icon">✓</div>
+    <div>Задачи</div>
+  </div>
+  <div class="nav-item" data-view="habits">
+    <div class="nav-icon">🔥</div>
+    <div>Привычки</div>
+  </div>
+</div>
+
+<script>
+// ===== Default schedule (anchored to prayer times structure) =====
+const defaultSchedule = [
+  {time:"05:30", title:"Фаджр и азкары", sub:"Утренняя молитва", icon:"🕌", tag:"намаз"},
+  {time:"06:00", title:"Зарядка", sub:"Разминка, вода", icon:"💪", tag:"здоровье"},
+  {time:"06:30", title:"Китайский: аудирование", sub:"Shadowing + Podcast", icon:"🎧", tag:"中文"},
+  {time:"07:30", title:"Работа / учёба", sub:"Основные задачи", icon:"💼", tag:"работа"},
+  {time:"11:00", title:"Китайский: speaking", sub:"Монолог + чтение вслух", icon:"🗣", tag:"中文"},
+  {time:"12:00", title:"Зухр", sub:"Молитва", icon:"🕌", tag:"намаз"},
+  {time:"13:30", title:"Работа / учёба", sub:"Дневные задачи", icon:"💼", tag:"работа"},
+  {time:"15:00", title:"Аср", sub:"Молитва", icon:"🕌", tag:"намаз"},
+  {time:"18:00", title:"Магриб", sub:"Молитва", icon:"🕌", tag:"намаз"},
+  {time:"18:30", title:"Китайский: письмо", sub:"Иероглифы + предложения", icon:"✍️", tag:"中文"},
+  {time:"19:00", title:"Ужин с семьёй", sub:"", icon:"🍽", tag:"семья"},
+  {time:"20:00", title:"Иша", sub:"Молитва", icon:"🕌", tag:"намаз"},
+  {time:"21:30", title:"Чтение / планирование", sub:"Подготовка к завтра", icon:"📖", tag:"саморазвитие"},
+  {time:"22:00", title:"Сон", sub:"", icon:"😴", tag:""}
+];
+
+const defaultHabits = [
+  {name:"Чудесное утро", days:[false,false,false,false,false,false,false]},
+  {name:"Намаз вовремя (5 раз)", days:[false,false,false,false,false,false,false]},
+  {name:"Китайский 45 мин", days:[false,false,false,false,false,false,false]},
+  {name:"Спорт (Ср/Сб)", days:[false,false,false,false,false,false,false]},
+  {name:"Чтение", days:[false,false,false,false,false,false,false]}
+];
+
+// ===== Storage =====
+function loadData(){
+  let tasks = [];
+  let habits = defaultHabits;
+  let schedule = defaultSchedule;
+  try{
+    const t = localStorage.getItem('planner_tasks_v1');
+    const h = localStorage.getItem('planner_habits_v1');
+    const s = localStorage.getItem('planner_schedule_v1');
+    if(t) tasks = JSON.parse(t);
+    if(h) habits = JSON.parse(h);
+    if(s) schedule = JSON.parse(s);
+  }catch(e){}
+  return {tasks, habits, schedule};
+}
+function saveTasks(tasks){ localStorage.setItem('planner_tasks_v1', JSON.stringify(tasks)); }
+function saveHabits(habits){ localStorage.setItem('planner_habits_v1', JSON.stringify(habits)); }
+
+let state = loadData();
+
+// ===== Date header =====
+function renderHeader(){
+  const days = ['ВОСКРЕСЕНЬЕ','ПОНЕДЕЛЬНИК','ВТОРНИК','СРЕДА','ЧЕТВЕРГ','ПЯТНИЦА','СУББОТА'];
+  const months = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+  const now = new Date();
+  document.getElementById('dateLabel').textContent = days[now.getDay()];
+  document.getElementById('dayName').textContent = now.getDate() + ' ' + months[now.getMonth()];
+}
+
+// ===== Schedule view =====
+function renderSchedule(){
+  const list = document.getElementById('scheduleList');
+  list.innerHTML = '';
+  const now = new Date();
+  const nowMinutes = now.getHours()*60 + now.getMinutes();
+
+  let currentIdx = -1;
+  let minDiff = Infinity;
+  state.schedule.forEach((b, i) => {
+    const [h,m] = b.time.split(':').map(Number);
+    const diff = Math.abs((h*60+m) - nowMinutes);
+    if((h*60+m) <= nowMinutes && diff < minDiff){ minDiff = diff; currentIdx = i; }
+  });
+
+  state.schedule.forEach((b, i) => {
+    const div = document.createElement('div');
+    div.className = 'block' + (i === currentIdx ? ' current' : '');
+    div.innerHTML = `
+      <div class="block-time">${b.time}</div>
+      <div class="block-icon" style="background:var(--surface2)">${b.icon}</div>
+      <div class="block-body">
+        <div class="block-title">${b.title}</div>
+        ${b.sub ? `<div class="block-sub">${b.sub}</div>` : ''}
+      </div>
+      ${b.tag ? `<div class="block-tag">${b.tag}</div>` : ''}
+    `;
+    list.appendChild(div);
+  });
+}
+
+// ===== Tasks view =====
+function renderTasks(){
+  const list = document.getElementById('tasksList');
+  const empty = document.getElementById('tasksEmpty');
+  list.innerHTML = '';
+
+  if(state.tasks.length === 0){
+    empty.style.display = 'block';
+  } else {
+    empty.style.display = 'none';
+  }
+
+  state.tasks.forEach((t, i) => {
+    const row = document.createElement('div');
+    row.className = 'task-row';
+    row.innerHTML = `
+      <div class="check ${t.done ? 'checked' : ''}" data-idx="${i}"></div>
+      <div class="task-text ${t.done ? 'done' : ''}">${t.text}</div>
+    `;
+    list.appendChild(row);
+  });
+
+  list.querySelectorAll('.check').forEach(el => {
+    el.addEventListener('click', () => {
+      const idx = parseInt(el.dataset.idx);
+      state.tasks[idx].done = !state.tasks[idx].done;
+      saveTasks(state.tasks);
+      renderTasks();
+      renderProgress();
+    });
+  });
+
+  // Long press on task text to delete
+  list.querySelectorAll('.task-row').forEach((row, idx) => {
+    let pressTimer;
+    const startPress = () => {
+      pressTimer = setTimeout(() => {
+        if(confirm('Удалить задачу "' + state.tasks[idx].text + '"?')){
+          state.tasks.splice(idx, 1);
+          saveTasks(state.tasks);
+          renderTasks();
+          renderProgress();
+        }
+      }, 600);
+    };
+    const cancelPress = () => clearTimeout(pressTimer);
+    row.addEventListener('touchstart', startPress);
+    row.addEventListener('touchend', cancelPress);
+    row.addEventListener('touchmove', cancelPress);
+    row.addEventListener('mousedown', startPress);
+    row.addEventListener('mouseup', cancelPress);
+    row.addEventListener('mouseleave', cancelPress);
+  });
+
+  const done = state.tasks.filter(t => t.done).length;
+  document.getElementById('statDone').textContent = done;
+  document.getElementById('statLeft').textContent = state.tasks.length - done;
+}
+
+document.getElementById('addTaskBtn').addEventListener('click', addTask);
+document.getElementById('taskInput').addEventListener('keypress', (e) => {
+  if(e.key === 'Enter') addTask();
+});
+function addTask(){
+  const input = document.getElementById('taskInput');
+  const text = input.value.trim();
+  if(!text) return;
+  state.tasks.push({text, done:false});
+  saveTasks(state.tasks);
+  input.value = '';
+  renderTasks();
+  renderProgress();
+}
+
+// ===== Habits view =====
+const dayLetters = ['П','В','С','Ч','П','С','В'];
+function renderHabits(){
+  const list = document.getElementById('habitsList');
+  const empty = document.getElementById('habitsEmpty');
+  list.innerHTML = '';
+
+  if(state.habits.length === 0){
+    empty.style.display = 'block';
+  } else {
+    empty.style.display = 'none';
+  }
+
+  const now = new Date();
+  let todayIdx = now.getDay() - 1;
+  if(todayIdx < 0) todayIdx = 6;
+
+  state.habits.forEach((h, hi) => {
+    const streak = h.days.filter(d => d).length;
+    const card = document.createElement('div');
+    card.className = 'habit-card';
+    let dotsHtml = '';
+    for(let i=0;i<7;i++){
+      dotsHtml += `<div class="day-dot ${h.days[i] ? 'filled' : ''} ${i===todayIdx ? 'today' : ''}" data-h="${hi}" data-d="${i}">${h.days[i] ? '✓' : dayLetters[i]}</div>`;
+    }
+    card.innerHTML = `
+      <div class="habit-top">
+        <div class="habit-name">${h.name}</div>
+        <div class="habit-streak">🔥 ${streak}/7</div>
+      </div>
+      <div class="week-dots">${dotsHtml}</div>
+    `;
+    card.dataset.idx = hi;
+    list.appendChild(card);
+  });
+
+  list.querySelectorAll('.day-dot').forEach(el => {
+    el.addEventListener('click', () => {
+      const hi = parseInt(el.dataset.h);
+      const di = parseInt(el.dataset.d);
+      state.habits[hi].days[di] = !state.habits[hi].days[di];
+      saveHabits(state.habits);
+      renderHabits();
+    });
+  });
+
+  // Long press to delete a habit
+  list.querySelectorAll('.habit-card').forEach(card => {
+    let pressTimer;
+    const startPress = () => {
+      pressTimer = setTimeout(() => {
+        const idx = parseInt(card.dataset.idx);
+        if(confirm('Удалить привычку "' + state.habits[idx].name + '"?')){
+          state.habits.splice(idx, 1);
+          saveHabits(state.habits);
+          renderHabits();
+        }
+      }, 600);
+    };
+    const cancelPress = () => clearTimeout(pressTimer);
+    card.addEventListener('touchstart', startPress);
+    card.addEventListener('touchend', cancelPress);
+    card.addEventListener('touchmove', cancelPress);
+    card.addEventListener('mousedown', startPress);
+    card.addEventListener('mouseup', cancelPress);
+    card.addEventListener('mouseleave', cancelPress);
+  });
+}
+
+document.getElementById('addHabitBtn').addEventListener('click', addHabit);
+document.getElementById('habitInput').addEventListener('keypress', (e) => {
+  if(e.key === 'Enter') addHabit();
+});
+function addHabit(){
+  const input = document.getElementById('habitInput');
+  const text = input.value.trim();
+  if(!text) return;
+  state.habits.push({name:text, days:[false,false,false,false,false,false,false]});
+  saveHabits(state.habits);
+  input.value = '';
+  renderHabits();
+}
+
+// ===== Progress ring =====
+function renderProgress(){
+  const total = state.tasks.length;
+  const done = state.tasks.filter(t => t.done).length;
+  const pct = total === 0 ? 0 : Math.round((done/total)*100);
+  const circumference = 119.4;
+  const offset = circumference - (pct/100)*circumference;
+  document.getElementById('ringProgress').style.strokeDashoffset = offset;
+  document.getElementById('ringText').textContent = pct + '%';
+}
+
+// ===== Tab switching =====
+function switchView(view){
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.view === view));
+}
+document.querySelectorAll('.tab, .nav-item').forEach(el => {
+  el.addEventListener('click', () => switchView(el.dataset.view));
+});
+
+// ===== Init =====
+renderHeader();
+renderSchedule();
+renderTasks();
+renderHabits();
+renderProgress();
+setInterval(renderSchedule, 60000);
+
+// Register service worker for offline PWA support
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>
