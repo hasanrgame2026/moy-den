@@ -1,8 +1,5 @@
-const CACHE_NAME = 'moy-den-v1';
-const urlsToCache = [
-  './index.html',
-  './manifest.json'
-];
+const CACHE_NAME = 'moy-den-v3';
+const urlsToCache = ['./index.html', './manifest.json'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -24,8 +21,6 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
-    })
+    fetch(event.request).catch(() => caches.match(event.request))
   );
 });
